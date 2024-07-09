@@ -2,14 +2,34 @@
 
 const fetchData = async () => {
     const url = "https://geo.stat.fi/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature&typeName=tilastointialueet:kunta4500k&outputFormat=json&srsName=EPSG:4326"
-    const res = await fetch(url);
-    const data = await res.json();
+    const positiveUrl = "https://statfin.stat.fi/PxWeb/sq/4bb2c735-1dc3-4c5e-bde7-2165df85e65f"
+    const negativeUrl = "https://statfin.stat.fi/PxWeb/sq/944493ca-ea4d-4fd9-a75c-4975192f7b6e"
 
-    initmap(data);
+    const res = await fetch(url);
+    const res2 = await fetch(positiveUrl);
+    const res3 = await fetch(negativeUrl);
+
+    const data = await res.json();
+    const positiveMigration = await res2.json();
+    const negativeMigration = await res3.json();
+
+    initmap(data, positiveMigration, negativeMigration);
 
 }
 
-const initmap = (data) => {
+const initmap = (data, positiveMigration, negativeMigration) => {
+
+
+    const positiveData = positiveMigration.dataset.value;
+    const negativeData = negativeMigration.dataset.value;
+
+    data.features.forEach(feature => {
+        const municipalityCode = feature.properties.kunta;
+        feature.properties.positiveMigration = positiveData[municipalityCode];
+        feature.properties.negativeMigration = negativeData[municipalityCode];
+    });
+
+
     let map = L.map('map', {
         minZoom: -2
 
@@ -34,6 +54,9 @@ const initmap = (data) => {
 const getFeature =(feature, layer) =>   {
     if (!feature.properties.name) return;
     const name = feature.properties.name;
+    const positiveMigration = feature.properties.positiveMigration;
+    const negativeMigration = feature.properties.negativeMigration;
+
     layer.on({
         mouseover: (e) => {
             layer.bindTooltip(name, {
@@ -43,6 +66,11 @@ const getFeature =(feature, layer) =>   {
         },
         mouseout: (e) => {
             layer.closeTooltip();
+        },
+        click: (e) => {
+            layer.bindPopup(
+                `<strong>${name}</strong><br>Positive Migration: ${positiveMigration}<br>Negative Migration: ${negativeMigration}`
+            ).openPopup(e.latlng);
         }
     });
     
