@@ -16,15 +16,36 @@ const initmap = (data) => {
     })
 
     let geoJson = L.geoJSON(data, {
-        
+        onEachFeature: getFeature,
         weight: 2
+        
 
     }).addTo(map)
     
+    let osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap"
+    }).addTo(map);
 
 
     map.fitBounds(geoJson.getBounds())
 
+}
+
+const getFeature =(feature, layer) =>   {
+    if (!feature.properties.name) return;
+    const name = feature.properties.name;
+    layer.on({
+        mouseover: (e) => {
+            layer.bindTooltip(name, {
+                permanent: false,
+                direction: "top"
+            }).openTooltip(e.latlng);
+        },
+        mouseout: (e) => {
+            layer.closeTooltip();
+        }
+    });
+    
 }
 
 fetchData();
