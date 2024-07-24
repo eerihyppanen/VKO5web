@@ -12,6 +12,8 @@ const fetchData = async () => {
     const data = await res.json();
     const positiveMigration = await res2.json();
     const negativeMigration = await res3.json();
+    console.log("Positive Migration Data:", positiveMigration);
+    console.log("Negative Migration Data:", negativeMigration);
 
     initmap(data, positiveMigration, negativeMigration);
 
@@ -22,11 +24,31 @@ const initmap = (data, positiveMigration, negativeMigration) => {
 
     const positiveData = positiveMigration.dataset.value;
     const negativeData = negativeMigration.dataset.value;
+    const municipalityCodes = positiveMigration.dataset.dimension.Tuloalue.category.index;
+
+    console.log("Municipality Codes:", municipalityCodes);
+
+    
+    const positiveMigrationMap = {};
+    const negativeMigrationMap = {};
+
+    Object.keys(municipalityCodes).forEach(key => {
+        positiveMigrationMap[key] = positiveData[municipalityCodes[key]];
+        negativeMigrationMap[key] = negativeData[municipalityCodes[key]];
+    });
+
+    console.log("Positive Migration Map:", positiveMigrationMap);//needed some debugging had problems with municipalitycodes
+    console.log("Negative Migration Map:", negativeMigrationMap);
 
     data.features.forEach(feature => {
-        const municipalityCode = feature.properties.kunta;
-        feature.properties.positiveMigration = positiveData[municipalityCode];
-        feature.properties.negativeMigration = negativeData[municipalityCode];
+        const municipalityCode = `KU${feature.properties.kunta}`; 
+
+        if (municipalityCode in positiveMigrationMap) {
+            feature.properties.positiveMigration = positiveMigrationMap[municipalityCode] || 0; 
+            feature.properties.negativeMigration = negativeMigrationMap[municipalityCode] || 0; 
+        } else {
+            console.warn(`Municipality code not found for: ${municipalityCode}`);
+        }
     });
 
 
@@ -36,6 +58,19 @@ const initmap = (data, positiveMigration, negativeMigration) => {
     })
 
     let geoJson = L.geoJSON(data, {
+        style: (feature) => {
+            const positiveMigration = feature.properties.positiveMigration;
+            const negativeMigration = feature.properties.negativeMigration;
+
+            return {
+                fillColor: getColor(positiveMigration, negativeMigration),
+                weight: 2,
+                opacity: 1,
+                color: 'black',
+                dashArray: '3',
+                fillOpacity: 0.7
+            };
+        },
         onEachFeature: getFeature,
         weight: 2
         
@@ -53,7 +88,7 @@ const initmap = (data, positiveMigration, negativeMigration) => {
 
 const getFeature =(feature, layer) =>   {
     if (!feature.properties.name) return;
-    const name = feature.properties.name;
+    const name = feature.properties.nimi;
     const positiveMigration = feature.properties.positiveMigration;
     const negativeMigration = feature.properties.negativeMigration;
 
@@ -75,5 +110,18 @@ const getFeature =(feature, layer) =>   {
     });
     
 }
+
+const getColor = (positiveMigration, negativeMigration) => {
+    
+    if (negativeMigration === 0) negativeMigration = 1;
+    
+    
+    const ratio = positiveMigration / negativeMigration;
+    const hue = Math.min(ratio ** 3 * 60, 120);
+    
+    
+    return `hsl(${hue}, 75%, 50%)`;
+}
+
 
 fetchData();
